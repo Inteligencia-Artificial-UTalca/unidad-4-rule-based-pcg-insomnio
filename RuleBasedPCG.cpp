@@ -41,6 +41,23 @@ Map cellularAutomata(const Map& currentMap, int W, int H, int R, double U) {
     // Remember that updates should be based on the 'currentMap' state
     // and applied to the 'newMap' to avoid race conditions within the same iteration.
 
+    for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+            int count = 0;
+            for (int dy = -R; dy <= R; ++dy) {
+                for (int dx = -R; dx <= R; ++dx) {
+                    if (dx == 0 && dy == 0) continue;
+                    int nx = x + dx, ny = y + dy;
+                    if (nx >= 0 && nx < W && ny >= 0 && ny < H)
+                        count += currentMap[ny][nx];
+                }
+            }
+
+            double ratio = count / double((2 * R + 1) * (2 * R + 1) - 1);
+            newMap[y][x] = (ratio > U) ? 1 : 0;
+        }
+    }
+
     return newMap;
 }
 
@@ -64,6 +81,20 @@ Map cellularAutomata(const Map& currentMap, int W, int H, int R, double U) {
  * @param agentY Current Y position of the agent (updated by reference).
  * @return The map after the agent's movements and actions.
  */
+ 
+ // Draw rooms on the map
+ void digRoom(Map& map, int x, int y, int maxW, int maxH, int mapW, int mapH) {
+    int rw = rand() % (maxW - 1) + 2;
+    int rh = rand() % (maxH - 1) + 2;
+
+    for (int i = y - rh / 2; i <= y + rh / 2; ++i) {
+        for (int j = x - rw / 2; j <= x + rw / 2; ++j) {
+            if (i >= 0 && i < mapH && j >= 0 && j < mapW)
+                map[i][j] = 1;
+        }
+    }
+}
+
 Map drunkAgent(const Map& currentMap, int W, int H, int J, int I, int roomSizeX, int roomSizeY,
                double probGenerateRoom, double probIncreaseRoom,
                double probChangeDirection, double probIncreaseChange,
@@ -80,29 +111,43 @@ Map drunkAgent(const Map& currentMap, int W, int H, int J, int I, int roomSizeX,
     // - Use the provided parameters (J, I, roomSizeX, roomSizeY, probabilities)
     //   to control its behavior.
 
-    for(int j=0; j<J; ++j){
-        for(int i=0; i<I; ++i){
-            if(agentX<0 || agentX>= W || agentY<0 || agentY>=H)break;
+    std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+    std::uniform_real_distribution<> random01(0.0, 1.0);
+    std::uniform_int_distribution<> directionPick(0, 3);
+
+    std::vector<std::pair<int, int>> directions = {{1,0},{-1,0},{0,1},{0,-1}};
+    int dx = 1, dy = 0;
+
+    for (int j = 0; j < J; ++j) {
+        for (int i = 0; i < I; ++i) {
+            if (agentX < 0 || agentX >= W || agentY < 0 || agentY >= H) break;
+
+            newMap[agentY][agentX] = 1;
+
+            if (random01(rng) < probGenerateRoom) {
+                digRoom(newMap, agentX, agentY, roomSizeX, roomSizeY, W, H);
+                probGenerateRoom = 0.1;
+            } else {
+                probGenerateRoom += probIncreaseRoom;
+            }
+
+            if (random01(rng) < probChangeDirection) {
+                int dir = directionPick(rng);
+                dx = directions[dir].first;
+                dy = directions[dir].second;
+                probChangeDirection = 0.2;
+            } else {
+                probChangeDirection += probIncreaseChange;
+            }
+
+            agentX += dx;
+            agentY += dy;
+
+            agentX = std::max(0, std::min(W - 1, agentX));
+            agentY = std::max(0, std::min(H - 1, agentY));
         }
     }
 
-    currentMap[agentY][agentX]= 1;
-
-    if(random01(rng) < probGenerateRoom){
-        digRoom(currentMap, agentX, agentY, roomSizeX, roomSizeY, W, H);
-        probGenerateRoom = 0.1;
-    }else{
-        probGenerateRoom += probIncreaseRoom;
-    }
-
-    if(random01(rng) < probChangeDirection){
-        int dir = directionPick(rng);
-        dx = directions(dir).first;
-        dy = directions(dir).second;
-        probChangeDirection = 0.2;
-    }
-
-    
     return newMap;
 }
 
@@ -156,13 +201,12 @@ int main() {
         // TODO: IMPLEMENTATION GOES HERE: Call the Cellular Automata and/or Drunk Agent functions.
         // The order of calls will depend on how you want them to interact.
 
-        // Example: First the cellular automata, then the agent
-        myMap = cellularAutomata(myMap, ca_W, ca_H, ca_R, ca_U);
-        myMap = drunkAgent(myMap, da_W, da_H, da_J, da_I, da_roomSizeX, da_roomSizeY,
+        myMap = cellularAutomata(myMap, mapCols, mapRows, ca_R, ca_U);
+        myMap = drunkAgent(myMap, mapCols, mapRows, da_J, da_I,
+                           da_roomSizeX, da_roomSizeY,
                            da_probGenerateRoom, da_probIncreaseRoom,
                            da_probChangeDirection, da_probIncreaseChange,
                            drunkAgentX, drunkAgentY);
-
         printMap(myMap);
 
         // You can add a delay to visualize the simulation step by step
