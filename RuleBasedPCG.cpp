@@ -80,6 +80,29 @@ Map drunkAgent(const Map& currentMap, int W, int H, int J, int I, int roomSizeX,
     // - Use the provided parameters (J, I, roomSizeX, roomSizeY, probabilities)
     //   to control its behavior.
 
+    for(int j=0; j<J; ++j){
+        for(int i=0; i<I; ++i){
+            if(agentX<0 || agentX>= W || agentY<0 || agentY>=H)break;
+        }
+    }
+
+    currentMap[agentY][agentX]= 1;
+
+    if(random01(rng) < probGenerateRoom){
+        digRoom(currentMap, agentX, agentY, roomSizeX, roomSizeY, W, H);
+        probGenerateRoom = 0.1;
+    }else{
+        probGenerateRoom += probIncreaseRoom;
+    }
+
+    if(random01(rng) < probChangeDirection){
+        int dir = directionPick(rng);
+        dx = directions(dir).first;
+        dy = directions(dir).second;
+        probChangeDirection = 0.2;
+    }
+
+    
     return newMap;
 }
 
